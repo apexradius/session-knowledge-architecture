@@ -1,0 +1,50 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/prompt-enhancer.js"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/mcp-cleanup.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/post-install-verify.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf /*)",
+      "Bash(git push --force origin main)",
+      "Bash(git push --force origin master)",
+      "Bash(curl *|bash)",
+      "Bash(wget *|bash)"
+    ]
+  }
+}
