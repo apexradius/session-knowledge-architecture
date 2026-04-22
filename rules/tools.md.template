@@ -1,0 +1,20 @@
+---
+description: <!-- REPLACE: MCP servers, tool counts, and when to use each -->
+globs: ["**/*"]
+---
+
+# Tools & MCP Servers
+
+<!-- REPLACE: List your MCP servers, their tool counts, and usage rules -->
+
+## Active MCP Servers
+
+| Server | Tool Count | Purpose | Notes |
+|--------|-----------|---------|-------|
+| <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> |
+
+## Tool Usage Rules
+
+- <!-- REPLACE: Add rules about when to use which tools -->
+- Prefer MCP tools over CLI equivalents when available
+- Run smoke tests after any global install

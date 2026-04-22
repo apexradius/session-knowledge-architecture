@@ -1,0 +1,32 @@
+---
+description: <!-- REPLACE: Machines, servers, key paths, and infrastructure details -->
+globs: ["**/*"]
+---
+
+# Infrastructure
+
+<!-- REPLACE: Add your infrastructure details below -->
+
+## Machines
+
+| Machine | Hostname | OS | Notes |
+|---------|----------|-----|-------|
+| <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> |
+
+## Servers
+
+| Resource | Address | Purpose |
+|----------|---------|---------|
+| <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> |
+
+## Key Paths
+
+| Path | Purpose |
+|------|---------|
+| <!-- REPLACE --> | <!-- REPLACE --> |
+
+## Rules
+
+- Always run `hostname` before claiming which machine you are on
+- Never assume service status — check it
+- Never write to iCloud Drive or synced directories without verification

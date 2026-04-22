@@ -1,0 +1,20 @@
+---
+description: <!-- REPLACE: Skills system trigger routing table -->
+globs: ["**/*"]
+---
+
+# Skills System
+
+<!-- REPLACE: Add your skills trigger routing table -->
+
+## Trigger Routing
+
+| Context | Skill | Description |
+|---------|-------|-------------|
+| <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> |
+
+## Rules
+
+- Always check the skills index before any substantive task
+- Skills are SOPs, not suggestions — follow them exactly
+- If a task has 5+ steps, the planning skill triggers automatically

@@ -1,159 +1,200 @@
-# Session Knowledge Architecture — Final Plan
-**Updated:** 2026-04-16
-**Context:** Full session of failures, corrections, research, and honest assessment of AI limitations
+# Session Knowledge Architecture (SKA)
 
----
+Enforcement layer for Claude Code that transforms "state your assumptions" from a rule the model can skip into a protocol the CLI enforces.
 
-## The Core Problem
+## The Problem
 
-Claude Code is a probabilistic engine optimized for confident, fast token generation. It does not feel doubt. It does not experience consequences. When it lacks context, it generates plausible-sounding answers instead of stopping. No amount of documentation fixes this — the tendency is in the weights.
+Claude Code is a probabilistic engine optimized for confident, fast token generation. When it lacks context, it generates plausible-sounding answers instead of stopping. No amount of documentation fixes this — the tendency is in the weights.
 
-The solution is not to make the AI better. It's to build the CI/CD pipeline, verification loops, and execution constraints that catch its inevitable failures before they reach production.
+The solution is not to make the AI better. It's to build enforcement that catches failures before they reach production.
 
----
+## Quick Start
 
-## Architecture: Three Layers
-
-### Layer 1: .claude/rules/ (Knowledge — What to Know)
-
-Modular, path-scoped, auto-loaded. Replaces monolithic CLAUDE.md + Brain.md startup.
-
-```
-.claude/rules/
-  identity.md              — Who, companies, Q2 targets, revenue priorities
-  behavioral.md            — All accumulated corrections (excellence over speed,
-                             verify before reporting, check memory before asking)
-  anthropic-overrides.md   — Default behaviors to suppress (no recaps, no hedging,
-                             no unrequested features, be decisive not deferential)
-  unknowns-requirement.md  — MANDATORY: before any solution, list 3 assumptions
-                             and identify missing context. Simulate doubt.
-  tools.md                 — 8 MCPs with tool counts + when to use each
-  skills.md                — 125 skills trigger table
-  infrastructure.md        — Machines, VPS, NAS, key paths
-  standing-rules.md        — Non-negotiable rules from Brain.md
-  delegation.md            — Sub-agent protocol with verification gates
+```bash
+git clone https://github.com/apexradius/session-knowledge-architecture.git
+cd session-knowledge-architecture
+./install.sh
 ```
 
-Path-scoped (load only when working in matching dirs):
+This copies rules, hooks, and templates to `~/.claude/` and merges SKA hooks into your existing `settings.json` (non-destructively). Run `./install.sh --dry-run` to preview.
+
+To remove: `./uninstall.sh` (preserves session archives) or `./uninstall.sh --purge` (removes everything).
+
+## Architecture: Four Layers
+
 ```
-  shopify.md               — paths: ["**/apex-commerce-mcp/**", "**/shopify/**"]
-  vps.md                   — paths: ["**/keystone/**"]
+┌─────────────────────────────────────────┐
+│            SESSION STATE                │
+│  SESSION.md — assumptions, unknowns,    │
+│  corrections across turns               │
+└──────────────────┬──────────────────────┘
+                   │ reads/writes
+┌──────────────────┼──────────────────────┐
+│           ENFORCEMENT (Hooks)            │
+│  SessionStart → session-start.sh        │
+│  PreToolUse  → planning-gate.sh [422]   │
+│  PreToolUse  → read-only-gate.sh        │
+│  PostToolUse → post-install-verify.sh   │
+│  Stop        → session-close.sh         │
+│  Stop        → mcp-cleanup.sh           │
+└──────────────────┼──────────────────────┘
+                   │ constrained by
+┌──────────────────┼──────────────────────┐
+│          KNOWLEDGE (Rules)               │
+│  9 always-loaded + N path-scoped rules  │
+└──────────────────┼──────────────────────┘
+                   │ validated by
+┌──────────────────┼──────────────────────┐
+│        VERIFICATION (Tests)              │
+│  test-hooks.sh, test-rules-loaded.sh,   │
+│  test-mcp-suite.sh                      │
+└─────────────────────────────────────────┘
 ```
 
-**Total always-loaded: ~250 lines across 9 files**
-Replaces: 554 lines across 3 files — smaller AND more complete.
+## The 422 Pattern: Planning Gate
 
-### Layer 2: Structural Enforcement (Hooks — What to Enforce)
+The critical enforcement mechanism. `planning-gate.sh` is a `PreToolUse` hook that **blocks all Edit/Write calls** unless a planning block exists in the session's `SESSION.md` file.
 
-Hooks are the guardrails around the unreliable dependency. They execute regardless of what the model decides to do.
+### How it works
 
-| Hook | Event | What It Enforces |
-|------|-------|-----------------|
-| prompt-enhancer.js | UserPromptSubmit | Rewrites prompts via haiku. Recursion guard prevents fork bomb. |
-| post-install-verify.sh | PostToolUse (Bash) | After any `npm install -g` for apex packages, runs smoke test. Warns on regression. |
-| mcp-cleanup.sh | Stop | Kills orphan MCPs, recursive chains, stale node processes. |
-| LaunchAgent (cleanup) | Every 5 min | Safety net for crashes/force-quits. |
-| LaunchAgent (upstream) | 1st of month | Checks upstream repos for updates worth porting. |
+1. Model attempts to edit a file
+2. `planning-gate.sh` reads `SESSION.md` for the current session
+3. If no planning block with **ASSUMPTIONS** (3+), **UNKNOWNS** (1+), and **VERIFICATION_PLAN** (1+) → **exit 2** (tool call rejected)
+4. If planning block exists → exit 0 (tool call proceeds)
 
-**Proposed new hooks:**
+The model physically cannot write code until it has:
+- Listed its assumptions (3 minimum, must be task-specific)
+- Identified what it hasn't checked
+- Described how it will verify the change
 
-| Hook | Event | What It Enforces |
-|------|-------|-----------------|
-| read-only-gate.sh | PreToolUse (Bash/Edit/Write) | When in discovery phase (first N minutes or explicit flag), blocks write operations. Forces read-only exploration before modification. |
-| unknowns-check.js | PreToolUse (Edit/Write) | Before first code edit in a session, checks if assumptions were stated. If not, injects reminder. |
+### Why this works
 
-### Layer 3: Verification Loops (Tests — What to Prove)
+The planning block is written to a file, not just stated in chat. This creates a verifiable artifact that hooks can check mechanically. The act of pausing to write anything is itself a circuit breaker against confident sprinting.
 
-The test is the substitute for doubt.
+## Hooks Reference
 
-| Test | When | What It Proves |
-|------|------|----------------|
-| test-mcp-suite.sh | After any MCP build/install | All 8 servers start, correct tool counts |
-| Smoke test in PostToolUse | After npm install -g | No tool count regression |
-| Unit tests per package | Before any PR/publish | Individual package correctness |
+| Hook | Event | Matcher | Behavior |
+|------|-------|---------|----------|
+| `session-start.sh` | SessionStart | — | Creates `SESSION.md`, verifies rules loaded, injects enforcement context |
+| `planning-gate.sh` | PreToolUse | `Edit\|Write` | **422 blocks** edits without planning block in SESSION.md |
+| `read-only-gate.sh` | PreToolUse | `Bash\|Edit\|Write` | Blocks writes when `~/.claude/.discovery-mode` flag exists |
+| `post-install-verify.sh` | PostToolUse | `Bash` | Runs smoke tests after `npm install -g` of apex packages |
+| `session-close.sh` | Stop | — | Archives SESSION.md, cleans up flags, chains to mcp-cleanup |
+| `mcp-cleanup.sh` | Stop | — | Kills orphan MCP servers and recursive claude fork chains |
 
-**Test-Driven AI Rule:** For any new tool or feature:
-1. Write the test first (what does "correct" look like?)
-2. Run it (it should fail — the feature doesn't exist yet)
-3. Build the feature
-4. Run the test again (it should pass)
-5. If it doesn't pass, fix before reporting success
+## SESSION.md
 
----
+Each session gets a `SESSION.md` that accumulates state across turns.
 
-## The Unknowns Requirement
+**Created by:** `session-start.sh`
+**Location:** `~/.claude/sessions/SESSION-{session-id}.md`
+**Archived by:** `session-close.sh` → `~/.claude/sessions/archive/`
 
-This is the single most important behavioral change. Add to `.claude/rules/unknowns-requirement.md`:
+See `examples/SESSION.md.example` for annotated format.
 
-Before providing any solution, making any architectural decision, or asserting any fact about external systems:
+### Structure
 
-1. **State 3 assumptions** you are making
-2. **Identify what context or documentation you haven't checked**
-3. **Verify the most critical assumption** before proceeding
+```markdown
+# Session: 2026-04-16T14:30:00
+## Planning Blocks
+### Task: [description]
+ASSUMPTIONS:
+- [specific assumption about task logic]
+- [specific assumption about data/API behavior]
+- [specific assumption about system state]
 
-If you cannot list your assumptions, you do not understand the problem well enough to act.
+UNKNOWNS:
+- [what you haven't checked]
 
-This is not optional. This is not a suggestion. This is a structural requirement like writing tests before code.
+VERIFICATION_PLAN:
+- [how you'll prove correctness]
 
----
+STATUS: in_progress | verified | failed
+
+## Corrections
+- [timestamp] [what was wrong] → [what was correct]
+
+## Decisions
+- [timestamp] [decision] [rationale]
+```
+
+## Discovery Mode
+
+Create `~/.claude/.discovery-mode` to force read-only exploration:
+
+```bash
+touch ~/.claude/.discovery-mode    # Enable
+rm ~/.claude/.discovery-mode       # Disable
+```
+
+While active, `read-only-gate.sh` blocks all writes except to `~/.claude/sessions/` (so planning blocks can still be written). Only whitelisted read-only Bash commands are allowed.
+
+## Rules
+
+| File | Description |
+|------|-------------|
+| `anthropic-overrides.md` | Suppress unhelpful default behaviors (recaps, hedging, padding) |
+| `behavioral.md` | Accumulated corrections from real failures |
+| `delegation.md` | Sub-agent protocol with verification gates |
+| `unknowns-requirement.md` | Mandatory assumption declaration before any solution |
+
+### Templates (customize after install)
+
+| File | Description |
+|------|-------------|
+| `identity.md.template` | Company info, revenue targets, priorities |
+| `tools.md.template` | MCP servers, tool counts, usage rules |
+| `skills.md.template` | Skills trigger routing table |
+| `infrastructure.md.template` | Machines, servers, key paths |
+| `standing-rules.md.template` | Non-negotiable rules for every session |
+
+Copy each `.template` to `.md` (remove suffix) and replace all `<!-- REPLACE -->` markers.
+
+## Tests
+
+```bash
+./tests/test-hooks.sh          # Unit tests for all hooks (24 tests)
+./tests/test-rules-loaded.sh   # Validates rule frontmatter + content
+./tests/test-mcp-suite.sh      # MCP server smoke tests (if applicable)
+```
 
 ## What This Does NOT Fix
 
-Being honest:
+- **Confident hallucination** — The unknowns requirement reduces but doesn't eliminate wrong facts
+- **Subtle reasoning errors** — No hook can catch logical mistakes
+- **Novel failure modes** — Hooks catch known error classes; new types need new hooks
+- **Speed bias in weights** — Training pushes toward quick responses; the rules fight this but the bias remains
 
-- **Confident hallucination** — I may still state wrong facts. The unknowns requirement reduces this but doesn't eliminate it.
-- **Subtle reasoning errors** — I may make logical mistakes that no hook can catch.
-- **Novel failure modes** — The hooks catch known error classes. New types of errors need new hooks.
-- **Speed bias in weights** — My training pushes me toward quick responses. The rules fight this but the bias remains.
+The user must remain the senior engineer. The architecture makes the model less dangerous, not safe.
 
-The user must remain the senior engineer. I am the fast, dangerously confident junior developer. The architecture makes me less dangerous, not safe.
+## File Structure
 
----
-
-## Implementation Phases
-
-### Phase 1: Create .claude/rules/ directory (~1 hour)
-1. Create each rules file from existing CLAUDE.md + Brain.md + feedback memories
-2. Create unknowns-requirement.md (the critical new piece)
-3. Create anthropic-overrides.md
-4. Slim down CLAUDE.md to session start protocol + pointer to rules
-5. Test in a new session — verify rules load, verify path-scoping works
-
-### Phase 2: Build verification hooks (~1 hour)
-1. read-only-gate.sh — PreToolUse hook that blocks writes during discovery
-2. unknowns-check.js — PreToolUse hook that reminds about assumptions before first edit
-3. Wire both into settings.json
-4. Test each hook manually
-
-### Phase 3: Evaluate claude-mem (~30 min)
-1. Install: `npx claude-mem install`
-2. Run a test session — verify capture
-3. Start new session — verify injection
-4. Decide: keep, replace, or supplement
-
-### Phase 4: Cross-machine deployment (~30 min)
-1. .claude/rules/ synced via Syncthing
-2. Hooks synced via Syncthing
-3. LaunchAgents created on both machines
-4. Verify identical behavior on Mac Mini and MacBook
-
-### Phase 5: Test-driven workflow enforcement (~1 hour)
-1. Create test templates for each MCP package
-2. Add pre-publish test requirement to each package.json
-3. Document the test-first workflow in rules/delegation.md
-4. Test with a real feature addition (add a tool, write test first)
-
----
-
-## Sources
-
-- [Claude Code Memory Docs](https://code.claude.com/docs/en/memory)
-- [How Claude Code Rules Work](https://joseparreogarcia.substack.com/p/how-claude-code-rules-actually-work)
-- [Claude-Mem Plugin (46K stars)](https://github.com/thedotmack/claude-mem)
-- [Recursive Self-Improvement with Claude Code](https://medium.com/@davidroliver/recursive-self-improvement-building-a-self-improving-agent-with-claude-code-d2d2ae941282)
-- [singularity-claude: Self-Evolving Skills](https://github.com/Shmayro/singularity-claude)
-- [6 Best AI Agent Memory Frameworks 2026](https://machinelearningmastery.com/the-6-best-ai-agent-memory-frameworks-you-should-try-in-2026/)
-- [Claude Code Hooks: All 12 Events](https://www.pixelmojo.io/blogs/claude-code-hooks-production-quality-ci-cd-patterns)
-- [Building Persistent AI Agent Memory](https://dev.to/iniyarajan86/building-persistent-ai-agent-memory-systems-that-actually-work-463o)
-- [Architecture of Memory Systems in AI Agents](https://www.analyticsvidhya.com/blog/2026/04/memory-systems-in-ai-agents/)
-- User's own analysis of CLI self-modification mechanics and James 1:19 methodology
+```
+session-knowledge-architecture/
+  install.sh                     # Installer (deep-merges into settings.json)
+  uninstall.sh                   # Uninstaller (reads .ska-manifest)
+  rules/
+    anthropic-overrides.md       # Suppress unhelpful defaults
+    behavioral.md                # Corrections from real failures
+    delegation.md                # Sub-agent protocol
+    unknowns-requirement.md      # Mandatory assumption declaration
+    identity.md.template         # [customize] Company/identity
+    tools.md.template            # [customize] MCP servers
+    skills.md.template           # [customize] Skills routing
+    infrastructure.md.template   # [customize] Infrastructure
+    standing-rules.md.template   # [customize] Hard rules
+  hooks/
+    session-start.sh             # SessionStart — creates SESSION.md
+    session-close.sh             # Stop — archives SESSION.md
+    planning-gate.sh             # PreToolUse — 422 planning gate
+    read-only-gate.sh            # PreToolUse — discovery mode
+    post-install-verify.sh       # PostToolUse — npm install verification
+    mcp-cleanup.sh               # Stop — orphan process cleanup
+  tests/
+    test-hooks.sh                # Hook unit tests
+    test-rules-loaded.sh         # Rule validation
+    test-mcp-suite.sh            # MCP smoke tests
+  examples/
+    settings.json                # Example settings with all hooks
+    SESSION.md.example           # Annotated session file example
+```

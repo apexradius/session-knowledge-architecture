@@ -27,3 +27,15 @@ This is not optional. This is not a suggestion. This is a structural requirement
 - Trivial operations (reading a file, running a test, listing a directory)
 - Operations where the verification IS the action (running `hostname` to check which machine)
 - Follow-up steps in an already-verified plan
+
+## Forbidden Assumptions
+
+These will NOT satisfy the planning gate. Assumptions must be specific to the internal logic of the current task:
+
+- "The code exists"
+- "I have permission"
+- "The environment is set up"
+- "The file is correctly formatted"
+- "The dependencies are installed"
+
+Good assumptions name specific functions, data structures, API behaviors, or system states that your solution depends on being true.

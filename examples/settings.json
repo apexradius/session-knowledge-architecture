@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -11,13 +22,22 @@
         ]
       }
     ],
-    "Stop": [
+    "PreToolUse": [
       {
-        "matcher": "",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/mcp-cleanup.sh"
+            "command": "~/.claude/hooks/planning-gate.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/read-only-gate.sh"
           }
         ]
       }
@@ -29,6 +49,17 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/post-install-verify.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-close.sh"
           }
         ]
       }

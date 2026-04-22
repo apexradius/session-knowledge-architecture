@@ -1,0 +1,52 @@
+# Session: 2026-04-16T14:30:00
+## Session ID: abc123
+
+## Planning Blocks
+
+### Task: Add rate limiting to /api/v1/users endpoint
+
+ASSUMPTIONS:
+- The FastAPI middleware stack processes middlewares in LIFO order (last added = first executed)
+- The Redis connection pool at `app/core/redis.py` is already configured for the production VPS
+- Rate limit errors should return HTTP 429 with a `Retry-After` header per RFC 6585
+
+UNKNOWNS:
+- Whether the existing auth middleware caches the user object (affects where to count requests)
+- Current request volume to this endpoint (need to check access logs before setting limits)
+
+VERIFICATION_PLAN:
+- Run existing test suite after adding middleware to confirm no regressions
+- Write a new test that sends 11 requests in 10 seconds and expects 429 on the 11th
+- Check the Retry-After header value matches the configured window
+
+STATUS: verified
+
+---
+
+### Task: Fix Shopify webhook signature validation
+
+ASSUMPTIONS:
+- The HMAC comparison uses the shop's API secret, not the app secret (Shopify docs confirm this)
+- Webhook body must be read as raw bytes before JSON parsing (hashing parsed JSON changes the hash)
+- The X-Shopify-Hmac-SHA256 header contains base64-encoded HMAC-SHA256
+
+UNKNOWNS:
+- Whether the current FastAPI middleware consumes the request body before our handler reads it
+- Whether proxy headers (X-Forwarded-For) affect the signature
+
+VERIFICATION_PLAN:
+- Capture a real webhook payload from Shopify (use ngrok + print raw body)
+- Compute HMAC locally and compare against header value
+- Test with both valid and tampered payloads
+
+STATUS: in_progress
+
+## Corrections
+
+- [14:45] Stated "Redis is on port 6380" → Correct: Redis is on default port 6379 (verified via `redis-cli ping`)
+- [15:20] Assumed webhook body was UTF-8 string → Correct: must be raw bytes for HMAC computation
+
+## Decisions
+
+- [14:35] Rate limit: 100 requests per 60 seconds per API key. Rationale: matches Shopify's own rate limits, keeps us in sync with upstream.
+- [15:10] Use `slowapi` library instead of custom middleware. Rationale: already handles Redis backend, sliding windows, and proper 429 responses. Less code to maintain.

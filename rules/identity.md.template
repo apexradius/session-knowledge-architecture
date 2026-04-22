@@ -1,0 +1,34 @@
+---
+description: <!-- REPLACE: Identity, company info, revenue targets, and priorities -->
+globs: ["**/*"]
+---
+
+# Identity & Revenue Priorities
+
+<!-- REPLACE: Add your identity, company details, and current targets below -->
+
+## Who We Are
+
+| Field | Value |
+|-------|-------|
+| Owner | <!-- REPLACE --> |
+| Company | <!-- REPLACE --> |
+| Primary Domain | <!-- REPLACE --> |
+
+## Current Revenue Targets
+
+| Stream | Target | Blocker |
+|--------|--------|---------|
+| <!-- REPLACE --> | <!-- REPLACE --> | <!-- REPLACE --> |
+
+## Priority Levels
+
+| Priority | Definition |
+|----------|-----------|
+| P0 | Unlocks revenue this week |
+| P1 | Removes a revenue blocker |
+| P2 | Multiplies existing revenue |
+| P3 | Infrastructure/tooling |
+| P4 | No current-quarter connection |
+
+Never spend P0 time on P4 work.

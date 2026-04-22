@@ -1,0 +1,24 @@
+---
+description: <!-- REPLACE: Non-negotiable rules that apply to every session -->
+globs: ["**/*"]
+---
+
+# Standing Rules
+
+<!-- REPLACE: Add your non-negotiable rules below. These should be rules that
+     have been earned through real failures, not theoretical best practices. -->
+
+## Hard Rules
+
+- <!-- REPLACE: Add rules here -->
+- Never ask the user to run commands — run them directly
+- Confirm before destructive operations
+- Secrets via env vars — never hardcoded
+- No WIP code with TODO comments — finish it or don't ship it
+- One fix per commit — atomic changes
+
+## Decision Heuristics
+
+1. Reversible action → decide fast. Irreversible → confirm first.
+2. Simpler way exists → use it. Three similar lines > premature abstraction.
+3. Security doubt → surface before shipping.
