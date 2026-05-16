@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ~/.claude/hooks/prompt-enhancer.js"
+            "command": "node ~/.claude/hooks/intent-router.js"
           }
         ]
       }

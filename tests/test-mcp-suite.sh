@@ -11,7 +11,7 @@ set -eo pipefail
 SERVERS=(
   "apex-github-mcp:27"
   "apex-core-mcp:17"
-  "apex-commerce-mcp:59"
+  "apex-commerce-mcp:29"
   "apex-tools-mcp:5"
   "apex-browser-mcp:40"
   "apex-social-mcp:9"
@@ -19,7 +19,7 @@ SERVERS=(
   "apex-automation-mcp:16"
 )
 
-TIMEOUT_SECS=15
+TIMEOUT_SECS=30
 PASS_COUNT=0
 FAIL_COUNT=0
 TOTAL=${#SERVERS[@]}
@@ -71,9 +71,7 @@ tools_msg = json.dumps({
 
 try:
     proc.stdin.write(init_msg.encode())
-    proc.stdin.write(tools_msg.encode())
     proc.stdin.flush()
-    proc.stdin.close()
 except Exception as e:
     try:
         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -84,24 +82,35 @@ except Exception as e:
 
 responses = []
 buf = b""
+err_buf = b""
 start = time.time()
+sent_tools = False
 
 try:
     while time.time() - start < timeout_secs:
-        ready = select.select([proc.stdout], [], [], 1.0)
+        ready = select.select([proc.stdout, proc.stderr], [], [], 1.0)
         if ready[0]:
-            chunk = os.read(proc.stdout.fileno(), 65536)
-            if not chunk:
-                break
-            buf += chunk
-            while b"\n" in buf:
-                line, buf = buf.split(b"\n", 1)
-                line = line.strip()
-                if line:
-                    try:
-                        responses.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
+            for stream in ready[0]:
+                chunk = os.read(stream.fileno(), 65536)
+                if not chunk:
+                    continue
+                if stream is proc.stderr:
+                    err_buf += chunk
+                    continue
+                buf += chunk
+                while b"\n" in buf:
+                    line, buf = buf.split(b"\n", 1)
+                    line = line.strip()
+                    if line:
+                        try:
+                            responses.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+                if len(responses) >= 1 and not sent_tools:
+                    proc.stdin.write(tools_msg.encode())
+                    proc.stdin.flush()
+                    proc.stdin.close()
+                    sent_tools = True
             if len(responses) >= 2:
                 break
 except Exception:

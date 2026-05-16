@@ -16,7 +16,7 @@ DATE_SLUG=$(date '+%Y%m%d-%H%M%S')
 # If our parent process is still alive, this is a sub-agent termination.
 # When the main session exits, PPID is gone. When a sub-agent stops, PPID (main session) is alive.
 # This is immune to multi-terminal, Claude Desktop, and any "claude" string matches.
-if kill -0 "$PPID" 2>/dev/null; then
+if [ "${SKA_FORCE_SESSION_CLOSE:-0}" != "1" ] && kill -0 "$PPID" 2>/dev/null; then
   exit 0  # Parent still alive — sub-agent stop, not real session close
 fi
 

@@ -329,7 +329,7 @@ VERIFICATION_PLAN:
 EOF
 echo "SESSION-test-session-002.md" > "$TEST_SESSION_DIR/.current-session"
 
-OUTPUT=$(HOME="$TEST_HOME" bash "$HOOKS_DIR/session-close.sh" 2>&1)
+OUTPUT=$(HOME="$TEST_HOME" SKA_FORCE_SESSION_CLOSE=1 bash "$HOOKS_DIR/session-close.sh" 2>&1)
 EXIT_CODE=$?
 assert_exit "session-close exits 0" 0 "$EXIT_CODE" "$OUTPUT"
 
@@ -362,7 +362,7 @@ cat > "$TEST_SESSION_DIR/SESSION-cleanup-test.md" << 'EOF'
 ## Corrections
 ## Decisions
 EOF
-HOME="$TEST_HOME" bash "$HOOKS_DIR/session-close.sh" 2>/dev/null
+HOME="$TEST_HOME" SKA_FORCE_SESSION_CLOSE=1 bash "$HOOKS_DIR/session-close.sh" 2>/dev/null
 TOTAL=$((TOTAL + 1))
 if [ ! -f "$TEST_HOME/.claude/.discovery-mode" ]; then
   printf "  \033[32mPASS\033[0m discovery mode flag cleaned up on close\n"
